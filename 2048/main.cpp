@@ -53,7 +53,7 @@ class Tile {
 
     public:
 
-        Tile(int value = 2, pos position = pos(0, 0)) {
+        Tile(int value = 2, pos position = pos(0, 0), bool zoom = true) {
             this->value = value;
             this->position = position;
             this->button = new QPushButton(Frame);
@@ -63,14 +63,20 @@ class Tile {
             font.setPointSize(50);
             this->button->setFont(font);
             this->button->setText(QString:: number(this->getValue()));
-            this->addAnimation(QRect(30 + (this->position.y - 1 + 0.5) * tile_size, 50 + (this->position.x - 1 + 0.5) * tile_size, 0, 0), QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size), 300);
+            if (zoom) {
+                this->addAnimation(QRect(30 + (this->position.y - 1 + 0.5) * tile_size, 50 + (this->position.x - 1 + 0.5) * tile_size, 0, 0), QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size), 300);
+            } else {
+                this->button->setGeometry(QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size));
+            }
             this->button->show();
+            this->button->setFocusPolicy(Qt:: NoFocus);
             color();
        }
 
         ~Tile() {
             this->button->hide();
             delete this->button;
+            this->button = nullptr;
             if (this->animation != nullptr) {
                 delete this->animation;
                 this->animation = nullptr;
@@ -85,7 +91,16 @@ class Tile {
             return this->button->geometry();
         }
 
+        void hide() {
+            this->button->hide();
+        }
+
+        void show() {
+            this->button->show();
+        }
+
         bool isStopped() {
+            if (this->animation == nullptr) return true;
             if (this->animation->state() == QPropertyAnimation:: Stopped) {
                 delete this->animation;
                 this->animation = nullptr;
@@ -164,12 +179,20 @@ class GameState {
             for (int i = 0; i < MAX_SIZE; ++ i) {
                 for (int j = 0; j < MAX_SIZE; ++ j) {
                     if (B.board[i][j] != nullptr) {
-                        this->board[i][j] = new Tile(B.board[i][j]->getValue(), pos(i, j));
+                        this->board[i][j] = new Tile(B.board[i][j]->getValue(), pos(i, j), false);
                     } else {
                         this->board[i][j] = nullptr;
                     }
                 }
             }
+            label = new QLabel(Frame);
+            QFont font;
+            font.setFamily("consolas");
+            font.setPointSize(50);
+            label->setFont(font);
+            label->show();
+            label->setGeometry(30, 700, 400, 80);
+            label->setNum(B.current_score);
         }
 
         ~GameState() {
@@ -179,6 +202,35 @@ class GameState {
                     this->board[i][j] = nullptr;
                 }
             }
+            delete this->label;
+            this->label = nullptr;
+            for (; !delete_later.empty(); ) {
+                auto dump = delete_later.front();
+                delete dump;
+                delete_later.pop();
+            }
+        }
+
+        void hide() {
+            for (int i = 1; i <= board_size; ++ i) {
+                for (int j = 1; j <= board_size; ++ j) {
+                    if (this->board[i][j] != nullptr) {
+                        this->board[i][j]->hide();
+                    }
+                }
+            }
+            this->label->hide();
+        }
+
+        void show() {
+            for (int i = 1; i <= board_size; ++ i) {
+                for (int j = 1; j <= board_size; ++ j) {
+                    if (this->board[i][j] != nullptr) {
+                        this->board[i][j]->show();
+                    }
+                }
+            }
+            this->label->show();
         }
 
         void generateTile() {
@@ -341,23 +393,43 @@ void pre() {
 }
 
 void Game2048:: keyPressEvent(QKeyEvent* event) {
-    bool flag = false;
+//    GameState* tmp_game_state = new GameState(current_game_state);
+    GameState* tmp_game_state = current_game_state;
+    tmp_game_state->hide();
+    current_game_state = new GameState(*tmp_game_state);
+    int flag = 0;
     auto Key = event->key();
-    if (Key == Qt:: Key_W) {
-        flag |= current_game_state->merge(p[0], p[0], 2);
-    } else if (Key == Qt:: Key_A) {
-        flag |= current_game_state->merge(p[0], p[0], 0);
-    } else if (Key == Qt:: Key_D) {
-        flag |= current_game_state->merge(p[0], p[1], 1);
-    } else if (Key == Qt:: Key_S) {
-        flag |= current_game_state->merge(p[1], p[0], 3);
+    if (Key == Qt:: Key_Up) {
+        flag = current_game_state->merge(p[0], p[0], 2);
+    } else if (Key == Qt:: Key_Left) {
+        flag = current_game_state->merge(p[0], p[0], 0);
+    } else if (Key == Qt:: Key_Right) {
+        flag = current_game_state->merge(p[0], p[1], 1);
+    } else if (Key == Qt:: Key_Down) {
+        flag = current_game_state->merge(p[1], p[0], 3);
     } else if (Key == Qt:: Key_L) {
         current_game_state->loadGame();
+        flag = 3;
     } else if (Key == Qt:: Key_Q) {
         current_game_state->saveGame();
+    } else if (Key == Qt:: Key_B) {
+        if (stack.size() > 1) {
+            delete current_game_state;
+            stack.pop();
+            current_game_state = stack.top();
+            current_game_state->show();
+        }
+        flag = 3;
     }
-    if (flag) {
+    if (flag == 1) {
         current_game_state->generateTile();
+        stack.push(current_game_state);
+    } else {
+        if (flag != 3) {
+            delete current_game_state;
+            current_game_state = tmp_game_state;
+            current_game_state->show();
+        }
     }
 }
 
