@@ -92,11 +92,24 @@ class Tile {
         }
 
         void hide() {
-            this->button->hide();
+            delete this->button;
         }
 
-        void show() {
+        void show(bool zoom = false) {
+            this->button = new QPushButton(Frame);
+            QFont font;
+            font.setFamily("consolas");
+            font.setPointSize(50);
+            this->button->setFont(font);
+            this->button->setText(QString:: number(this->getValue()));
+            if (zoom) {
+                this->addAnimation(QRect(30 + (this->position.y - 1 + 0.5) * tile_size, 50 + (this->position.x - 1 + 0.5) * tile_size, 0, 0), QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size), 300);
+            } else {
+                this->button->setGeometry(QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size));
+            }
             this->button->show();
+            this->button->setFocusPolicy(Qt:: NoFocus);
+            color();
         }
 
         bool isStopped() {
@@ -336,13 +349,10 @@ class GameState {
             for (Tile* dump; !delete_later.empty(); ) {
                 dump = delete_later.front();
                 if (dump->isStopped()) {
-                    QString s = "hello";
-                    qDebug("hello");
                     delete dump;
+                    dump = nullptr;
                     delete_later.pop();
-                } else {
-                    break;
-                }
+                } else break;
             }
             bool successfully_merged = false;
             successfully_merged |= move(pi, pj, type);
@@ -366,9 +376,6 @@ class GameState {
                 }
             }
             successfully_merged |= move(pi, pj, type);
-            if (successfully_merged == false && isLost()) {
-                gameOver();
-            }
             label->setNum(current_score);
             if (isLost()) {
                 gameOver();
@@ -381,7 +388,7 @@ std:: stack <GameState*> stack;
 
 GameState* current_game_state;
 
-void pre() {
+void pre() { // Some preparations including setting colors and iteration orders
     for (int i = 0; i <= board_size + 1; ++ i) {
         p[0][i] = i;
         p[1][board_size + 1 - i] = p[0][i];
@@ -392,8 +399,7 @@ void pre() {
     }
 }
 
-void Game2048:: keyPressEvent(QKeyEvent* event) {
-//    GameState* tmp_game_state = new GameState(current_game_state);
+void Game2048:: keyPressEvent(QKeyEvent* event) { // React differently according to the key pressed
     GameState* tmp_game_state = current_game_state;
     tmp_game_state->hide();
     current_game_state = new GameState(*tmp_game_state);
