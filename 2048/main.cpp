@@ -1,11 +1,12 @@
 #include <QApplication>
+#include <QCoreApplication>
 #include <QKeyEvent>
+#include <QObject>
 #include <QMessageBox>
 #include <QLabel>
 #include <QDebug>
 #include <QPushButton>
 #include <QPropertyAnimation>
-#include <QSequentialAnimationGroup>
 #include <bits/stdc++.h>
 #include <unistd.h>
 #include <game2048.h>
@@ -39,9 +40,22 @@ int p[2][MAX_SIZE];
 int R[32769], G[32769], B[32769];
 
 Game2048* Frame;
+QStatusBar* Bar;
 
 int randInt(int l, int r) { // get a random integer in interval [l,r]
     return l + (1LL * rand() * rand()) % (r - l + 1);
+}
+
+QPushButton* newButton(QString text, int font_size = 50) {
+    QPushButton* button = new QPushButton(Frame);
+    QFont font;
+    font.setFamily("consolas");
+    font.setPointSize(font_size);
+    button->setFont(font);
+    button->setText(text);
+    button->show();
+    button->setFocusPolicy(Qt:: NoFocus);
+    return button;
 }
 
 class Tile {
@@ -56,20 +70,13 @@ class Tile {
         Tile(int value = 2, pos position = pos(0, 0), bool zoom = true) {
             this->value = value;
             this->position = position;
-            this->button = new QPushButton(Frame);
+            this->button = newButton(QString:: number(this->getValue()));
             this->animation = nullptr;
-            QFont font;
-            font.setFamily("consolas");
-            font.setPointSize(50);
-            this->button->setFont(font);
-            this->button->setText(QString:: number(this->getValue()));
             if (zoom) {
                 this->addAnimation(QRect(30 + (this->position.y - 1 + 0.5) * tile_size, 50 + (this->position.x - 1 + 0.5) * tile_size, 0, 0), QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size), 300);
             } else {
                 this->button->setGeometry(QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size));
             }
-            this->button->show();
-            this->button->setFocusPolicy(Qt:: NoFocus);
             color();
        }
 
@@ -96,19 +103,12 @@ class Tile {
         }
 
         void show(bool zoom = false) {
-            this->button = new QPushButton(Frame);
-            QFont font;
-            font.setFamily("consolas");
-            font.setPointSize(50);
-            this->button->setFont(font);
-            this->button->setText(QString:: number(this->getValue()));
+            this->button = newButton(QString:: number(this->getValue()));
             if (zoom) {
                 this->addAnimation(QRect(30 + (this->position.y - 1 + 0.5) * tile_size, 50 + (this->position.x - 1 + 0.5) * tile_size, 0, 0), QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size), 300);
             } else {
                 this->button->setGeometry(QRect(30 + (this->position.y - 1) * tile_size, 50 + (this->position.x - 1) * tile_size, tile_size, tile_size));
             }
-            this->button->show();
-            this->button->setFocusPolicy(Qt:: NoFocus);
             color();
         }
 
@@ -183,7 +183,7 @@ class GameState {
             font.setPointSize(50);
             label->setFont(font);
             label->show();
-            label->setGeometry(30, 700, 400, 80);
+            label->setGeometry(30, 680, 280, 80);
             label->setNum(0);
         }
 
@@ -204,7 +204,7 @@ class GameState {
             font.setPointSize(50);
             label->setFont(font);
             label->show();
-            label->setGeometry(30, 700, 400, 80);
+            label->setGeometry(30, 680, 280, 80);
             label->setNum(B.current_score);
         }
 
@@ -255,60 +255,10 @@ class GameState {
                     }
                 }
             }
-            if (unused.size() == 0 && isLost()) {
-                gameOver();
-            } else {
+            if (unused.size() != 0) {
                 pos tar = unused[randInt(0, (int)unused.size() - 1)];
                 board[tar.x][tar.y] = new Tile(randInt(1, 2) * 2, tar);
             }
-        }
-
-        int saveGame() {
-            std:: fstream file;
-            file.open("save.dat", std:: ios:: out | std:: ios:: trunc);
-            if (file.fail()) {
-                std:: cout << "failed!" << std:: endl;
-                return 2;
-            }
-            for (int i = 1; i <= board_size; ++ i) {
-                for (int j = 1; j <= board_size; ++ j) {
-                    int tmp = 0;
-                    if (board[i][j] != nullptr) {
-                        tmp = board[i][j]->getValue();
-                    }
-                    file << tmp << " ";
-                }
-            }
-            file << current_score;
-            file.close();
-            return 2;
-        }
-
-        int loadGame() {
-            for (; !delete_later.empty(); ) {
-                auto dump = delete_later.front();
-                delete_later.pop();
-                delete dump;
-            }
-            std:: fstream file;
-            file.open("save.dat", std:: ios:: in);
-            for (int i = 1; i <= board_size; ++ i) {
-                for (int j = 1; j <= board_size; ++ j) {
-                    int value;
-                    file >> value;
-                    if (board[i][j] != nullptr) {
-                        delete board[i][j];
-                    }
-                    board[i][j] = nullptr;
-                    if (value != 0) {
-                        board[i][j] = new Tile(value, pos(i, j));
-                    }
-                }
-            }
-            file >> current_score;
-            file.close();
-            this->label->setNum(current_score);
-            return 0;
         }
 
         bool isLost() {
@@ -377,16 +327,121 @@ class GameState {
             }
             successfully_merged |= move(pi, pj, type);
             label->setNum(current_score);
-            if (isLost()) {
-                gameOver();
-            }
             return successfully_merged;
+        }
+
+        void saveGame(std:: string path = "sav.dat") {
+            std:: fstream file;
+            file.open(path, std:: ios:: out | std:: ios:: trunc);
+            if (file.fail()) {
+                std:: cout << "failed!" << std:: endl;
+                return ;
+            }
+            for (int i = 1; i <= board_size; ++ i) {
+                for (int j = 1; j <= board_size; ++ j) {
+                    int tmp = 0;
+                    if (board[i][j] != nullptr) {
+                        tmp = board[i][j]->getValue();
+                    }
+                    file << tmp << " ";
+                }
+            }
+            file << current_score;
+            file.close();
+        }
+
+        void loadGame(std:: string path = "sav.dat") {
+            for (; !delete_later.empty(); ) {
+                auto dump = delete_later.front();
+                delete_later.pop();
+                delete dump;
+            }
+            std:: fstream file;
+            file.open(path, std:: ios:: in);
+            for (int i = 1; i <= board_size; ++ i) {
+                for (int j = 1; j <= board_size; ++ j) {
+                    int value;
+                    file >> value;
+                    if (board[i][j] != nullptr) {
+                        delete board[i][j];
+                    }
+                    board[i][j] = nullptr;
+                    if (value != 0) {
+                        board[i][j] = new Tile(value, pos(i, j));
+                    }
+                }
+            }
+            file >> current_score;
+            file.close();
+            this->label->setNum(current_score);
         }
 } ;
 
 std:: stack <GameState*> stack;
 
 GameState* current_game_state;
+
+class MyButtons : public QPushButton {
+    private:
+        unsigned type;
+
+    public:
+        MyButtons(QWidget* parent = nullptr, QString text = "", unsigned type = 1) : QPushButton(parent) {
+            this->type = type;
+            if (type == 1) {
+                connect(this, &QPushButton:: clicked, this, &MyButtons:: saveGame);
+                this->setGeometry(400, 680, 110, 80);
+                this->setText(text);
+            } else if (type == 0) {
+                connect(this, &QPushButton:: clicked, this, &MyButtons:: loadGame);
+                this->setGeometry(520, 680, 110, 80);
+                this->setText(text);
+            } else {
+                connect(this, &QPushButton:: clicked, this, &MyButtons:: backStep);
+                this->setGeometry(320, 690, 60, 60);
+
+                this->setIconSize(QSize(48, 48));
+                this->setIcon(QIcon("backstep.png"));
+            }
+            QFont font;
+            font.setFamily("consolas");
+            font.setPointSize(25);
+            this->setFont(font);
+            this->show();
+            this->setFocusPolicy(Qt:: NoFocus);
+            this->setCursor(QCursor(Qt::PointingHandCursor));
+        }
+
+        ~MyButtons() {
+            if (this->type == 1) {
+                disconnect(this, &QPushButton:: clicked, this, &MyButtons:: saveGame);
+            } else if (this->type == 0) {
+                disconnect(this, &QPushButton:: clicked, this, &MyButtons:: loadGame);
+            } else {
+                disconnect(this, &QPushButton:: clicked, this, &MyButtons:: backStep);
+            }
+        }
+
+    private slots:
+        void saveGame() {
+            current_game_state->saveGame();
+        }
+
+        void loadGame() {
+            current_game_state->loadGame();
+        }
+
+        void backStep() {
+            if (stack.size() > 1) {
+                delete current_game_state;
+                stack.pop();
+                current_game_state = stack.top();
+                current_game_state->show();
+            }
+        }
+};
+
+MyButtons *saveButton, *loadButton, *backButton;
 
 void pre() { // Some preparations including setting colors and iteration orders
     for (int i = 0; i <= board_size + 1; ++ i) {
@@ -397,6 +452,13 @@ void pre() { // Some preparations including setting colors and iteration orders
     for (int i = 2, j = 1; i <= 8192; i <<= 1, ++ j) {
         R[i] = G[i] = B[i] = 250 - (j - 1) * 9;
     }
+    saveButton = new MyButtons(Frame, "Save", 1);
+    loadButton = new MyButtons(Frame, "Load", 0);
+    backButton = new MyButtons(Frame, "Back", 2);
+}
+
+void test(std:: string path) {
+    current_game_state->loadGame(path);
 }
 
 void Game2048:: keyPressEvent(QKeyEvent* event) { // React differently according to the key pressed
@@ -413,29 +475,17 @@ void Game2048:: keyPressEvent(QKeyEvent* event) { // React differently according
         flag = current_game_state->merge(p[0], p[1], 1);
     } else if (Key == Qt:: Key_Down) {
         flag = current_game_state->merge(p[1], p[0], 3);
-    } else if (Key == Qt:: Key_L) {
-        current_game_state->loadGame();
-        flag = 3;
-    } else if (Key == Qt:: Key_Q) {
-        current_game_state->saveGame();
-    } else if (Key == Qt:: Key_B) {
-        if (stack.size() > 1) {
-            delete current_game_state;
-            stack.pop();
-            current_game_state = stack.top();
-            current_game_state->show();
-        }
-        flag = 3;
     }
     if (flag == 1) {
         current_game_state->generateTile();
         stack.push(current_game_state);
     } else {
-        if (flag != 3) {
-            delete current_game_state;
-            current_game_state = tmp_game_state;
-            current_game_state->show();
-        }
+        delete current_game_state;
+        current_game_state = tmp_game_state;
+        current_game_state->show();
+    }
+    if (current_game_state->isLost()) {
+        current_game_state->gameOver();
     }
 }
 
@@ -443,9 +493,11 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     Game2048 Window;
-    pre();
     Frame = &Window;
     Frame->show();
+    pre();
     current_game_state = new GameState();
+    stack.push(current_game_state);
+    test("../Tests/test06");
     return a.exec();
 }

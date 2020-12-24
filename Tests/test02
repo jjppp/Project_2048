@@ -1,7 +1,7 @@
 0 0 4 0
 0 0 0 0
-0 0 2 0
+0 0 4 0
 0 0 0 0
 0
 
-// to test basic moves with more that one tiles
+// to test vertical merge operations

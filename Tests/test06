@@ -1,7 +1,7 @@
-0 0 4 0
-0 0 4 0
-2 0 4 0
-4 4 4 4
+1024 128 32 0
+512 8 16 2
+8 16 2 4
+16 2 4 8
 0
 
-// to test multiple merge operations 2
+// to test game over situation

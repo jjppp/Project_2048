@@ -19,6 +19,5 @@ public:
 private:
     Ui::Game2048 *ui;
 
-//    void keyReleaseEvent(QKeyEvent* event);
 };
 #endif // GAME2048_H
