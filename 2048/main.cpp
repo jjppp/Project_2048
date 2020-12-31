@@ -498,6 +498,6 @@ int main(int argc, char *argv[])
     pre();
     current_game_state = new GameState();
     stack.push(current_game_state);
-    test("../Tests/test06");
+//    test("../Tests/test06");
     return a.exec();
 }
